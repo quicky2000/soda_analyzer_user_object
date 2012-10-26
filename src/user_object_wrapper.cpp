@@ -27,9 +27,9 @@ namespace osm_diff_analyzer_user_object
   }
 
   //----------------------------------------------------------------------------
-  osm_diff_analyzer_if::general_analyzer_if * user_object_wrapper::create_user_object_analyzer(const std::string & p_name)
+  osm_diff_analyzer_if::general_analyzer_if * user_object_wrapper::create_user_object_analyzer(const osm_diff_analyzer_if::module_configuration * p_conf)
   {
-    return new user_object_analyzer(p_name,m_common_api);
+    return new user_object_analyzer(p_conf,*m_common_api);
   }
 
   //----------------------------------------------------------------------------

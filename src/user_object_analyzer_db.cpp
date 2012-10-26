@@ -96,80 +96,103 @@ namespace osm_diff_analyzer_user_object
   }
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::insert(const osm_api_data_types::osm_core_element * const p_element)
+  void user_object_analyzer_db::insert(sqlite3_stmt * p_stmt,
+                                       osm_api_data_types::osm_object::t_osm_id p_id,
+                                       const std::string & p_type)
   {
-    sqlite3_stmt * l_stmt = NULL;
-    switch(p_element->get_core_type())
-      {
-      case osm_api_data_types::osm_core_element::NODE :
-        l_stmt = m_insert_node_id_stmt;
-        break;
-      case osm_api_data_types::osm_core_element::WAY :
-        {
-          l_stmt = m_insert_way_id_stmt;
-          //          const osm_api_data_types::osm_way * const l_way = dynamic_cast<const osm_api_data_types::osm_way * const>(p_element);
-          //          if(l_way==NULL)
-          //            {
-          //              std::cout << "ERROR : invalid way cast for object id " << p_element->get_id() << std::endl ;
-          //              exit(-1);
-          //            }
-          //          const std::vector<osm_core_element::t_osm_id>::
-        }
-        break;
-      case osm_api_data_types::osm_core_element::RELATION :
-        l_stmt = m_insert_relation_id_stmt;
-        break;
-      case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-        std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(p_element->get_core_type()) << "\"" << std::endl ;
-        exit(-1);
-        break;
-     }
-    
-    assert(l_stmt);
+    assert(p_stmt);
 
     // Binding values to statement
     //----------------------------
-    int l_status = sqlite3_bind_int(l_stmt,sqlite3_bind_parameter_index(l_stmt,"$id"),p_element->get_id());
+    int l_status = sqlite3_bind_int(p_stmt,sqlite3_bind_parameter_index(p_stmt,"$id"),p_id);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during binding of Id parameter for insert id statement of " << p_element-> get_core_type_str() << " : " << sqlite3_errmsg(m_db) << std::endl ;     
+        std::cout << "ERROR during binding of Id parameter for insert id statement of " << p_type << " : " << sqlite3_errmsg(m_db) << std::endl ;     
         exit(-1);
       }
   
     // Executing statement
     //---------------------
-    l_status = sqlite3_step(l_stmt);
+    l_status = sqlite3_step(p_stmt);
     if( l_status == SQLITE_DONE)
       {
 #ifdef ENABLE_SUCCESS_STATUS_DISPLAY
-        std::cout << p_element-> get_core_type_str() << " successfully inserted" << std::endl ;
+        std::cout << p_type << " successfully inserted" << std::endl ;
 #endif
       }
     else
       {
-        std::cout << "ERROR during insertion of " << p_element->get_core_type_str() << " id " << p_element->get_id() <<" : " << sqlite3_errmsg(m_db) << std::endl ;
+        std::cout << "ERROR during insertion of " << p_type << " id " << p_id <<" : " << sqlite3_errmsg(m_db) << std::endl ;
         exit(-1);
       }
 
     // Reset the statement for the next use
     //--------------------------------------
-    l_status = sqlite3_reset(l_stmt);  
+    l_status = sqlite3_reset(p_stmt);  
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during reset of " << p_element->get_core_type_str() << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
+        std::cout << "ERROR during reset of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
         exit(-1);
       }
 
     // Reset bindings because they are now useless
     //--------------------------------------------
 #if SQLITE_VERSION_NUMBER > 3006000
-    l_status = sqlite3_clear_bindings(l_stmt);
+    l_status = sqlite3_clear_bindings(p_stmt);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during reset of bindings of " << p_element->get_core_type_str() << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
+        std::cout << "ERROR during reset of bindings of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
         exit(-1);
       }
 #endif
+  }
+
+
+  //----------------------------------------------------------------------------
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_node * const p_node)
+  {
+    insert(m_insert_node_id_stmt,p_node->get_id(),osm_api_data_types::osm_node::get_type_str());
+  }
+
+  //----------------------------------------------------------------------------
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_way * const p_way)
+  {
+    insert(m_insert_way_id_stmt,p_way->get_id(),osm_api_data_types::osm_way::get_type_str());
+    const std::vector<osm_api_data_types::osm_core_element::t_osm_id> & l_node_refs = p_way->get_node_refs();
+    for(std::vector<osm_api_data_types::osm_core_element::t_osm_id>::const_iterator l_iter = l_node_refs.begin();
+        l_iter != l_node_refs.end();
+        ++l_iter)
+      {
+        insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
+      }
+  }
+
+  //----------------------------------------------------------------------------
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_relation * const p_relation)
+  {
+    insert(m_insert_relation_id_stmt,p_relation->get_id(),osm_api_data_types::osm_relation::get_type_str());
+    const std::vector<osm_api_data_types::osm_relation_member *> & l_members = p_relation->get_members();
+    for(std::vector<osm_api_data_types::osm_relation_member *>::const_iterator l_iter = l_members.begin();
+        l_iter != l_members.end();
+        ++l_iter)
+      {
+        switch((*l_iter)->get_type())
+          {
+          case osm_api_data_types::osm_core_element::NODE:
+            insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
+            break;
+          case osm_api_data_types::osm_core_element::WAY:
+            insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
+            break;
+          case osm_api_data_types::osm_core_element::RELATION:
+            insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
+            break;
+          case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
+            std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
+            exit(-1);
+            break;
+          }
+      }
   }
 
   //----------------------------------------------------------------------------

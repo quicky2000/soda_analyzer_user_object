@@ -9,13 +9,21 @@
 namespace osm_diff_analyzer_user_object
 {
   //------------------------------------------------------------------------------
-  user_object_analyzer::user_object_analyzer(const std::string & p_name,user_object_common_api * p_api):
-    osm_diff_analyzer_cpp_if::cpp_analyzer_base("user_analyser",p_name,""),
+  user_object_analyzer::user_object_analyzer(const osm_diff_analyzer_if::module_configuration * p_conf,user_object_common_api & p_api):
+    osm_diff_analyzer_cpp_if::cpp_analyzer_base("user_analyser",p_conf->get_name(),""),
     m_api(p_api),
     m_done(false),
-    m_user_name("quicky")
+    m_user_name("")
   {
-    assert(m_api);
+    const std::map<std::string,std::string> & l_conf_parameters = p_conf->get_parameters();
+    std::map<std::string,std::string>::const_iterator l_iter = l_conf_parameters.find("user_name");
+    if(l_iter == l_conf_parameters.end())
+      {
+	std::cout << "ERROR : missing mandatory \"user_name\" parameter" << std::endl ;
+	exit(-1);
+      }
+    std::cout << "parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+    delete p_conf;
   }
 
   //------------------------------------------------------------------------------
@@ -41,14 +49,22 @@ namespace osm_diff_analyzer_user_object
       {
         const osm_api_data_types::osm_core_element * const l_element = (*l_iter)->get_core_element();
         assert(l_element);
-        if(l_element->get_user() == m_user_name)
+
+        switch(l_element->get_core_type())
           {
-            m_db.insert(l_element);
-          }
-        else if(m_db.contains(l_element))
-          {
-            std::cout << "Change detected in " << l_element->get_core_type_str() << " " << l_element->get_id() << " by user " << l_element->get_user() << " in changeset " << l_element->get_changeset() << std::endl ;
+          case osm_api_data_types::osm_core_element::NODE :
+              generic_analyze<osm_api_data_types::osm_node>(l_element);
+            break;
+          case osm_api_data_types::osm_core_element::WAY :
+              generic_analyze<osm_api_data_types::osm_way>(l_element);
+            break;
+          case osm_api_data_types::osm_core_element::RELATION :
+              generic_analyze<osm_api_data_types::osm_relation>(l_element);
+            break;
+          case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
+            std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(l_element->get_core_type()) << "\"" << std::endl ;
             exit(-1);
+            break;
           }
 
         switch((*l_iter)->get_type())
