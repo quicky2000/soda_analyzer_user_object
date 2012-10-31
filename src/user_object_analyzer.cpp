@@ -19,11 +19,10 @@ namespace osm_diff_analyzer_user_object
     std::map<std::string,std::string>::const_iterator l_iter = l_conf_parameters.find("user_name");
     if(l_iter == l_conf_parameters.end())
       {
-	std::cout << "ERROR : missing mandatory \"user_name\" parameter" << std::endl ;
+	std::cout << "ERROR : missing mandatory \"user_name\" parameter in module \"" << get_name() <<"\"" << std::endl ;
 	exit(-1);
       }
     std::cout << "parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
-    delete p_conf;
   }
 
   //------------------------------------------------------------------------------
@@ -32,8 +31,9 @@ namespace osm_diff_analyzer_user_object
   }
 
   //------------------------------------------------------------------------------
-  void user_object_analyzer::init(void)
+  void user_object_analyzer::init(const osm_diff_analyzer_if::osm_diff_state * p_diff_state)
   {
+    std::cout << get_name() << " : Starting analyze of diff " << p_diff_state->get_sequence_number() << std::endl ;
   }
 
   //------------------------------------------------------------------------------

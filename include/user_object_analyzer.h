@@ -4,6 +4,7 @@
 #include "cpp_analyzer_base.h"
 #include "user_object_analyzer_description.h"
 #include "user_object_analyzer_db.h"
+#include "module_configuration.h"
 #include "stdint.h"
 #include <map>
 #include <fstream>
@@ -19,7 +20,7 @@ namespace osm_diff_analyzer_user_object
     user_object_analyzer(const osm_diff_analyzer_if::module_configuration * p_conf,user_object_common_api & p_api);
     ~user_object_analyzer(void);
     // Methods inherited from cpp_analyzer_if
-    void init(void);
+    void init(const osm_diff_analyzer_if::osm_diff_state * p_diff_state);
     void analyze(const std::vector<osm_api_data_types::osm_change*> & p_changes);
     const std::string & get_input_type(void)const;
     const std::string & get_output_type(void)const;
