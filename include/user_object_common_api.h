@@ -108,10 +108,10 @@ namespace osm_diff_analyzer_user_object
                         std::vector<osm_api_data_types::osm_way*> & p_ways,
                         std::vector<osm_api_data_types::osm_relation*> & p_relations,
                         void *p_user_data=NULL);
-    inline void cache_node(const osm_api_data_types::osm_node & p_node);
-    inline void cache_way(const osm_api_data_types::osm_way & p_way);
-    inline void cache_relation(const osm_api_data_types::osm_relation & p_relation);
-    inline void cache_user(const osm_api_data_types::osm_object::t_osm_id & p_id,
+    inline void cache(const osm_api_data_types::osm_node & p_node);
+    inline void cache(const osm_api_data_types::osm_way & p_way);
+    inline void cache(const osm_api_data_types::osm_relation & p_relation);
+    inline void cache(const osm_api_data_types::osm_object::t_osm_id & p_id,
                            const std::string & p_user_name,
                            const std::string & p_date);
 
@@ -349,23 +349,23 @@ namespace osm_diff_analyzer_user_object
   }
 
   //----------------------------------------------------------------------------
-  void user_object_common_api::cache_node(const osm_api_data_types::osm_node & p_node)
+  void user_object_common_api::cache(const osm_api_data_types::osm_node & p_node)
   {
     return m_cache_node(p_node);
   }
 
   //----------------------------------------------------------------------------
-  void user_object_common_api::cache_way(const osm_api_data_types::osm_way & p_way)
+  void user_object_common_api::cache(const osm_api_data_types::osm_way & p_way)
   {
     return m_cache_way(p_way);
   }
   //----------------------------------------------------------------------------
-  void user_object_common_api::cache_relation(const osm_api_data_types::osm_relation & p_relation)
+  void user_object_common_api::cache(const osm_api_data_types::osm_relation & p_relation)
   {
     return m_cache_relation(p_relation);
   }
   //----------------------------------------------------------------------------
-  void user_object_common_api::cache_user(const osm_api_data_types::osm_object::t_osm_id & p_id,
+  void user_object_common_api::cache(const osm_api_data_types::osm_object::t_osm_id & p_id,
                                           const std::string & p_user_name,
                                           const std::string & p_date)
   {

@@ -33,7 +33,8 @@ namespace osm_diff_analyzer_user_object
     osm_diff_analyzer_cpp_if::cpp_analyzer_base("user_analyser",p_conf->get_name(),""),
     m_api(p_api),
     m_done(false),
-    m_user_name("")
+    m_user_name(""),
+    m_report(NULL)
   {
     const std::map<std::string,std::string> & l_conf_parameters = p_conf->get_parameters();
     std::map<std::string,std::string>::const_iterator l_iter = l_conf_parameters.find("user_name");
@@ -42,12 +43,29 @@ namespace osm_diff_analyzer_user_object
 	std::cout << "ERROR : missing mandatory \"user_name\" parameter in module \"" << get_name() <<"\"" << std::endl ;
 	exit(-1);
       }
-    std::cout << "parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+    std::cout << get_name() << " : parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+    m_user_name = l_iter->second;
+    m_report.open((m_user_name+"_object_report.html").c_str());
+    if(m_report == NULL)
+      {
+	std::cout << "ERROR : unabled to open \"new_user_report.html" << std::endl ;
+	exit(EXIT_FAILURE);
+      }
+    m_report << "<html>" << std::endl ;
+    m_report << "\t<head>" << std::endl ;
+    m_report << "\t\t<title>" << m_user_name << " object report</title>" << std::endl ;
+    m_report << "\t</head>" << std::endl ;
+    m_report << "\t<body><H1>" << m_user_name << " object report</H1>" << std::endl ;
   }
 
   //------------------------------------------------------------------------------
   user_object_analyzer::~user_object_analyzer(void)
   {
+
+      m_report << "</body>" << std::endl ;
+      m_report << "</html>" << std::endl ;
+
+    m_report.close();
   }
 
   //------------------------------------------------------------------------------
@@ -73,13 +91,13 @@ namespace osm_diff_analyzer_user_object
         switch(l_element->get_core_type())
           {
           case osm_api_data_types::osm_core_element::NODE :
-              generic_analyze<osm_api_data_types::osm_node>(l_element);
+	    generic_analyze<osm_api_data_types::osm_node>(l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::WAY :
-              generic_analyze<osm_api_data_types::osm_way>(l_element);
+	    generic_analyze<osm_api_data_types::osm_way>(l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::RELATION :
-              generic_analyze<osm_api_data_types::osm_relation>(l_element);
+	    generic_analyze<osm_api_data_types::osm_relation>(l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
             std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(l_element->get_core_type()) << "\"" << std::endl ;
