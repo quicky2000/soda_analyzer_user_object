@@ -43,6 +43,7 @@ namespace osm_diff_analyzer_user_object
     inline void insert_way(const osm_api_data_types::osm_object::t_osm_id p_id);
     inline void insert_relation(const osm_api_data_types::osm_object::t_osm_id p_id);
 
+    bool contains(sqlite3_stmt * p_stmt,const osm_api_data_types::osm_object::t_osm_id & p_id);
     bool contains(const osm_api_data_types::osm_core_element * const p_element);
   private:
     void insert(sqlite3_stmt * p_stmt,osm_api_data_types::osm_object::t_osm_id p_id,const std::string & p_type);

@@ -1,22 +1,22 @@
 /*
-    This file is part of osm_diff_analyzer_user_object, Openstreetmap
-    diff analyzer based on CPP diff representation. It's aim is to survey
-    objects edited by parametered used and to generate an alert in case of 
-    edition on these objects
-    Copyright (C) 2012  Julien Thevenon ( julien_thevenon at yahoo.fr )
+  This file is part of osm_diff_analyzer_user_object, Openstreetmap
+  diff analyzer based on CPP diff representation. It's aim is to survey
+  objects edited by parametered used and to generate an alert in case of 
+  edition on these objects
+  Copyright (C) 2012  Julien Thevenon ( julien_thevenon at yahoo.fr )
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>
 */
 #include "user_object_analyzer_db.h"
 #include "osm_api_data_types.h"
@@ -183,7 +183,10 @@ namespace osm_diff_analyzer_user_object
         l_iter != l_node_refs.end();
         ++l_iter)
       {
-        insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
+	if(!contains(m_contains_node_id_stmt,*l_iter))
+	  {
+	    insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
+	  }
       }
   }
 
@@ -196,108 +199,121 @@ namespace osm_diff_analyzer_user_object
         l_iter != l_members.end();
         ++l_iter)
       {
-        switch((*l_iter)->get_type())
-          {
-          case osm_api_data_types::osm_core_element::NODE:
-            insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
-            break;
-          case osm_api_data_types::osm_core_element::WAY:
-            insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
-            break;
-          case osm_api_data_types::osm_core_element::RELATION:
-            insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
-            break;
-          case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-            std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
-            exit(-1);
-            break;
-          }
+	switch((*l_iter)->get_type())
+	  {
+	  case osm_api_data_types::osm_core_element::NODE:
+	    if(!contains(m_contains_node_id_stmt,(*l_iter)->get_object_ref()))
+	      {
+		insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
+	      }
+	    break;
+	  case osm_api_data_types::osm_core_element::WAY:
+	    if(!contains(m_contains_way_id_stmt,(*l_iter)->get_object_ref()))
+	      {
+		insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
+	      }
+	    break;
+	  case osm_api_data_types::osm_core_element::RELATION:
+	    if(!contains(m_contains_relation_id_stmt,(*l_iter)->get_object_ref()))
+	      {
+		insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
+	      }
+	    break;
+	  case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
+	    std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
+	    exit(-1);
+	    break;
+	  }
+	  
       }
+  }
+  //----------------------------------------------------------------------------
+  bool user_object_analyzer_db::contains( sqlite3_stmt * p_stmt,const osm_api_data_types::osm_object::t_osm_id & p_id)
+  {
+    bool l_result = false;
+    // Binding values to statement
+    //----------------------------
+    int l_status = sqlite3_bind_int(p_stmt,sqlite3_bind_parameter_index(p_stmt,"$id"),p_id);
+    if(l_status != SQLITE_OK)
+      {
+	std::cout << "ERROR during binding of Id parameter for contains statement : " << sqlite3_errmsg(m_db) << std::endl ;     
+	exit(-1);
+      }
+    
+    // Executing statement
+    //---------------------
+    l_status = sqlite3_step(p_stmt);
+    if( l_status == SQLITE_ROW)
+      {
+#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
+	std::cout << p_element->get_core_type_str() << " successfully selected" << std::endl ;
+#endif
+	// Ensure that ID is unique
+	l_status = sqlite3_step(p_stmt);
+	if( l_status == SQLITE_DONE)
+	  {
+#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
+	    std::cout << p_element->get_core_type_str() << " successfully selected done" << std::endl ;
+#endif
+	    l_result = true;
+	  }
+	else
+	  {
+	    std::cout << "ERROR during selection of : Id " << p_id << " is not unique " << sqlite3_errmsg(m_db) << std::endl ;
+	    exit(-1);
+	  }
+      }
+    else if(l_status != SQLITE_DONE)
+      {
+	std::cout << "ERROR during selection " << sqlite3_errmsg(m_db) << " in " << __FILE__ << ":" << __LINE__ << std::endl ;
+	exit(-1);
+      }
+
+
+
+    // Reset the statement for the next use
+    //--------------------------------------
+    l_status = sqlite3_reset(p_stmt);  
+    if(l_status != SQLITE_OK)
+      {
+	std::cout << "ERROR during reset of contains statement : " << sqlite3_errmsg(m_db) << " : " << __FILE__ << ":" << __LINE__ << std::endl ;     
+	exit(-1);
+      }
+
+    // Reset bindings because they are now useless
+    //--------------------------------------------
+#if SQLITE_VERSION_NUMBER > 3006000
+    l_status = sqlite3_clear_bindings(p_stmt);
+    if(l_status != SQLITE_OK)
+      {
+	std::cout << "ERROR during reset of bindings of contains statement : " << sqlite3_errmsg(m_db) <<  " : " << __FILE__ << ":" << __LINE__ << std::endl ;     
+	exit(-1);
+      }
+#endif
+    return l_result;
   }
 
   //----------------------------------------------------------------------------
   bool user_object_analyzer_db::contains(const osm_api_data_types::osm_core_element * const p_element)
   {
-    bool l_result = false;
-
     sqlite3_stmt * l_stmt = NULL;
     switch(p_element->get_core_type())
       {
       case osm_api_data_types::osm_core_element::NODE :
-        l_stmt = m_contains_node_id_stmt;
-        break;
+	l_stmt = m_contains_node_id_stmt;
+	break;
       case osm_api_data_types::osm_core_element::WAY :
-        l_stmt = m_contains_way_id_stmt;
-        break;
+	l_stmt = m_contains_way_id_stmt;
+	break;
       case osm_api_data_types::osm_core_element::RELATION :
-        l_stmt = m_contains_relation_id_stmt;
-        break;
+	l_stmt = m_contains_relation_id_stmt;
+	break;
       case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-        std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(p_element->get_core_type()) << "\"" << std::endl ;
-        exit(-1);
-        break;
-     }
-    
-    // Binding values to statement
-    //----------------------------
-    int l_status = sqlite3_bind_int(l_stmt,sqlite3_bind_parameter_index(l_stmt,"$id"),p_element->get_id());
-    if(l_status != SQLITE_OK)
-      {
-        std::cout << "ERROR during binding of Id parameter for contains statement of " << p_element->get_core_type_str() << " : " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(p_element->get_core_type()) << "\"" << std::endl ;
+	exit(-1);
+	break;
       }
-    
-  // Executing statement
-  //---------------------
-  l_status = sqlite3_step(l_stmt);
-  if( l_status == SQLITE_ROW)
-    {
-#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
-      std::cout << p_element->get_core_type_str() << " successfully selected" << std::endl ;
-#endif
-      // Ensure that ID is unique
-      l_status = sqlite3_step(l_stmt);
-      if( l_status == SQLITE_DONE)
-	{
-#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
-	  std::cout << p_element->get_core_type_str() << " successfully selected done" << std::endl ;
-#endif
-	  l_result = true;
-	}
-      else
-	{
-	  std::cout << "ERROR during selection of " << p_element->get_core_type_str() << " : Id " << p_element->get_id() << " is not unique " << sqlite3_errmsg(m_db) << std::endl ;
-	  exit(-1);
-	}
-    }
-  else if(l_status != SQLITE_DONE)
-    {
-      std::cout << "ERROR during selection of " << p_element->get_core_type_str() << " : " << sqlite3_errmsg(m_db) << std::endl ;
-      exit(-1);
-    }
-
-
-
-  // Reset the statement for the next use
-  //--------------------------------------
-  l_status = sqlite3_reset(l_stmt);  
-  if(l_status != SQLITE_OK)
-    {
-      std::cout << "ERROR during reset of " << p_element->get_core_type_str() << " contains statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-      exit(-1);
-    }
-
-  // Reset bindings because they are now useless
-  //--------------------------------------------
-#if SQLITE_VERSION_NUMBER > 3006000
-  l_status = sqlite3_clear_bindings(l_stmt);
-  if(l_status != SQLITE_OK)
-    {
-      std::cout << "ERROR during reset of bindings of " << p_element->get_core_type_str() << " contains statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-      exit(-1);
-    }
-#endif
-  return l_result;
+    return contains(l_stmt,p_element->get_id());
   }
 
   //----------------------------------------------------------------------------
