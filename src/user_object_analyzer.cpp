@@ -33,8 +33,10 @@ namespace osm_diff_analyzer_user_object
     osm_diff_analyzer_cpp_if::cpp_analyzer_base("user_analyser",p_conf->get_name(),""),
     m_api(p_api),
     m_done(false),
-    m_user_name(""),
-    m_report(NULL)
+#ifndef _WIN32
+    m_report(NULL),
+#endif
+    m_user_name("")
   {
     const std::map<std::string,std::string> & l_conf_parameters = p_conf->get_parameters();
     std::map<std::string,std::string>::const_iterator l_iter = l_conf_parameters.find("user_name");
@@ -48,7 +50,7 @@ namespace osm_diff_analyzer_user_object
     m_report.open((m_user_name+"_object_report.html").c_str());
     if(m_report == NULL)
       {
-	std::cout << "ERROR : unabled to open \"new_user_report.html" << std::endl ;
+	std::cout << "ERROR : unabled to open \"" << (m_user_name+"_object_report.html") << "\"" << std::endl ;
 	exit(EXIT_FAILURE);
       }
     m_report << "<html>" << std::endl ;

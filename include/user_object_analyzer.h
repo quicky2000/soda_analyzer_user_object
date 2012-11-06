@@ -69,9 +69,9 @@ namespace osm_diff_analyzer_user_object
 			   const osm_api_data_types::osm_change::t_osm_change_type & p_change);
     user_object_common_api & m_api;
     bool m_done;
+    std::ofstream m_report;
     std::string m_user_name;
     user_object_analyzer_db m_db;
-    std::ofstream m_report;
     static user_object_analyzer_description m_description;
   };
 
