@@ -99,18 +99,18 @@ namespace osm_diff_analyzer_user_object
 	bool l_modified = p_change == osm_api_data_types::osm_change::MODIFICATION;
 	osm_api_data_types::osm_core_element::t_osm_version l_previous_version = l_casted_object->get_version() - 1;
 
-	std::string l_object_url = "http://www.openstreetmap.org/browse/"+l_casted_object->get_core_type_str()+"/"+l_id_str.str();
+        std::string l_object_url;
+        m_api.get_object_browse_url(l_object_url,l_casted_object->get_core_type_str(),l_casted_object->get_id());
 	if(!l_modified)
 	  {
-	    std::stringstream l_version_str;
-	    l_version_str << l_previous_version;
-	    l_object_url += "/"+l_version_str.str();
+            m_api.get_api_object_url(l_object_url,l_casted_object->get_core_type_str(),l_casted_object->get_id(),l_previous_version); 
 	  }
 	std::stringstream l_changeset_str;
 	l_changeset_str << l_casted_object->get_changeset();
-	std::string l_changeset_url = "http://www.openstreetmap.org/browse/changeset/"+l_changeset_str.str();
-	std::string l_user_url = "http://www.openstreetmap.org/user/"+l_casted_object->get_user();
-	
+	std::string l_changeset_url;
+	m_api.get_object_browse_url(l_changeset_url,"changeset",l_casted_object->get_changeset());
+	std::string l_user_url;
+	m_api.get_user_browse_url(l_user_url,l_casted_object->get_user_id(),l_casted_object->get_user());
 
 	m_report << "<A HREF=\"" << l_object_url << "\">" << l_casted_object->get_core_type_str() << " " << l_casted_object->get_id() << "</A>" ;
 	m_report << " has been " << (l_modified  ? "modified":"deleted") << " " ;
@@ -168,6 +168,8 @@ namespace osm_diff_analyzer_user_object
       {
 	l_nodes_way1.insert(*l_iter);
       }
+    std::string l_way_url;
+    m_api.get_object_browse_url(l_way_url,"way",p_way2.get_id());
     for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = p_way2.get_node_refs().begin();
 	l_iter != p_way2.get_node_refs().end();
 	++l_iter)
@@ -175,7 +177,9 @@ namespace osm_diff_analyzer_user_object
 	l_nodes_way2.insert(*l_iter);
 	if(l_nodes_way1.find(*l_iter)==l_nodes_way1.end())
 	  {
-	    p_stream << "<li><A HREF=\"http://www.openstreetmap.org/browse/node/" << *l_iter << "\">Node " << *l_iter << "</A> has been added to <A HREF=\"http://www.openstreetmap.org/browse/way/" << p_way2.get_id() << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
+	    std::string l_node_url;
+	    m_api.get_object_browse_url(l_node_url,"node",*l_iter);
+	    p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been added to <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
 	  }
       }
     for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = l_way1->get_node_refs().begin();
@@ -184,7 +188,9 @@ namespace osm_diff_analyzer_user_object
       {
 	if(l_nodes_way2.find(*l_iter)==l_nodes_way2.end())
 	  {
-	    p_stream << "<li><A HREF=\"http://www.openstreetmap.org/browse/node/" << *l_iter << "\">Node " << *l_iter << "</A> has been removed from <A HREF=\"http://www.openstreetmap.org/browse/way/" << p_way2.get_id() << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
+	    std::string l_node_url;
+	    m_api.get_object_browse_url(l_node_url,"node",*l_iter);
+	    p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been removed from <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
 	  }
       }
     p_stream << "</ul>" ;
@@ -217,12 +223,16 @@ namespace osm_diff_analyzer_user_object
 	if(l_member_iter==l_members_relation1.end())
 	  {
 	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
-	    p_stream << "<li><A HREF=\"http://www.openstreetmap.org/browse/"<< l_type_str <<"/" << l_member_id << "\">" << l_type_str << " " << l_member_id << "</A> has been added with role \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
+	    std::string l_object_url;
+	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+	    p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been added with role \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
 	  }
 	else if(l_member_iter->second->get_role() != (*l_iter)->get_role())
 	  {
 	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str(l_member_iter->second->get_type()));
-	    p_stream << "<li>Role of <A HREF=\"http://www.openstreetmap.org/browse/"<< l_type_str <<"/" << l_member_id << "\">" << l_type_str << " " << l_member_id << "</A> has changed from \"" << l_member_iter->second->get_role() << "\" to \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
+	    std::string l_object_url;
+	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+	    p_stream << "<li>Role of <A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has changed from \"" << l_member_iter->second->get_role() << "\" to \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
 	  }
       }
     for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = l_relation1->get_members().begin();
@@ -234,7 +244,9 @@ namespace osm_diff_analyzer_user_object
 	if(l_member_iter==l_members_relation2.end())
 	  {
 	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
-	    p_stream << "<li><A HREF=\"http://www.openstreetmap.org/browse/"<< l_type_str <<"/" << l_member_id << "\">" << l_type_str << " " << l_member_id << "</A> has been removed</li>" << std::endl ;
+	    std::string l_object_url;
+	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+	    p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been removed</li>" << std::endl ;
 	  }
       }
     p_stream << "</ul>" ;
