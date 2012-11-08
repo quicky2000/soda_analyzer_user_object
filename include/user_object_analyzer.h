@@ -114,7 +114,7 @@ namespace osm_diff_analyzer_user_object
 
 	m_report << "<A HREF=\"" << l_object_url << "\">" << l_casted_object->get_core_type_str() << " " << l_casted_object->get_id() << "</A>" ;
 	m_report << " has been " << (l_modified  ? "modified":"deleted") << " " ;
-	m_report << " by user ";
+	m_report << " in version " << l_casted_object->get_version() << " by user ";
 	m_report << "<A HREF=\"" << l_user_url << "\">" << l_casted_object->get_user() << "</A>" ;
 	m_report << " in " ;
 	m_report << "<A HREF=\"" << l_changeset_url << "\">" << "changeset " << l_casted_object->get_changeset() << "</A><BR>" << std::endl ;
@@ -133,23 +133,49 @@ namespace osm_diff_analyzer_user_object
 				     const osm_api_data_types::osm_core_element::t_osm_version p_previous_version,
 				     const osm_api_data_types::osm_node & p_node2)
   {
-    const osm_api_data_types::osm_node * const l_node1 = m_api.get_node_version(p_node2.get_id(),p_previous_version);
-    p_stream << "<ul>" << std::setprecision(9);
-    if(l_node1->get_lat() != p_node2.get_lat() && l_node1->get_lon() != p_node2.get_lon())
+    const osm_api_data_types::osm_node * l_node1 = m_api.get_node_version(p_node2.get_id(),p_previous_version);
+    bool l_redacted = false;
+    osm_api_data_types::osm_core_element::t_osm_version l_redacted_version = p_previous_version - 1;
+    if(l_node1 == NULL)
       {
-	p_stream << "<li>Coordinates has changed from (" << l_node1->get_lat() << "," << l_node1->get_lon() << ") to (" << p_node2.get_lat() << "," << p_node2.get_lon() << ")</li>" << std::endl ;
+        l_redacted = true;
+        while( (l_node1 = m_api.get_node_version(p_node2.get_id(),l_redacted_version))==NULL && l_redacted_version)
+          {
+            --l_redacted_version;
+          }
       }
-    else if(l_node1->get_lat() != p_node2.get_lat())
+
+    if(l_node1 != NULL)
       {
-	p_stream << "<li>Latitude has changed from " << l_node1->get_lat() << " to " << p_node2.get_lat() << "</li>" << std::endl ;
+        if(l_redacted)
+          {
+            std::string l_redacted_link ;
+            m_api.get_api_object_url(l_redacted_link,p_node2.get_core_type_str(),p_node2.get_id(),l_redacted_version);            
+            p_stream << "<B>Due to redaction process comparison is done against <A HREF=\""<< l_redacted_link << "\">" << p_node2.get_core_type_str() << " " << p_node2.get_id() << " v" << l_redacted_version << "</A></B><BR>" << std::endl ;
+            m_api.cache(p_node2);
+          }
+
+        p_stream << "<ul>" << std::setprecision(9);
+        if(l_node1->get_lat() != p_node2.get_lat() && l_node1->get_lon() != p_node2.get_lon())
+          {
+            p_stream << "<li>Coordinates has changed from (" << l_node1->get_lat() << "," << l_node1->get_lon() << ") to (" << p_node2.get_lat() << "," << p_node2.get_lon() << ")</li>" << std::endl ;
+          }
+        else if(l_node1->get_lat() != p_node2.get_lat())
+          {
+            p_stream << "<li>Latitude has changed from " << l_node1->get_lat() << " to " << p_node2.get_lat() << "</li>" << std::endl ;
+          }
+        else if(l_node1->get_lon() != p_node2.get_lon())
+          {
+            p_stream << "<li>Longitude has changed from " << l_node1->get_lon() << " to " << p_node2.get_lon() << "</li>" << std::endl ;
+          }
+        compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_node1),*((const osm_api_data_types::osm_core_element *)&p_node2));
+        p_stream << "</ul>" ;
+        delete l_node1;
       }
-    else if(l_node1->get_lon() != p_node2.get_lon())
+    else
       {
-	p_stream << "<li>Longitude has changed from " << l_node1->get_lon() << " to " << p_node2.get_lon() << "</li>" << std::endl ;
+        p_stream << "<B>Unable to perform comparison because object had been redacted</B><BR>" << std::endl ;
       }
-    compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_node1),*((const osm_api_data_types::osm_core_element *)&p_node2));
-    p_stream << "</ul>" ;
-    delete l_node1;
   }
 
   //------------------------------------------------------------------------------
@@ -157,44 +183,70 @@ namespace osm_diff_analyzer_user_object
 				     const osm_api_data_types::osm_core_element::t_osm_version p_previous_version,
 				     const osm_api_data_types::osm_way & p_way2)
   {
-    const osm_api_data_types::osm_way * const l_way1 = m_api.get_way_version(p_way2.get_id(),p_previous_version);
-    p_stream << "<ul>" ;
-    compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_way1),*((const osm_api_data_types::osm_core_element *)&p_way2));
-    std::set<osm_api_data_types::osm_object::t_osm_id> l_nodes_way1;
-    std::set<osm_api_data_types::osm_object::t_osm_id> l_nodes_way2;
-    for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = l_way1->get_node_refs().begin();
-	l_iter != l_way1->get_node_refs().end();
-	++l_iter)
+    const osm_api_data_types::osm_way * l_way1 = m_api.get_way_version(p_way2.get_id(),p_previous_version);
+    bool l_redacted = false;
+    osm_api_data_types::osm_core_element::t_osm_version l_redacted_version = p_previous_version - 1;
+    if(l_way1 == NULL)
       {
-	l_nodes_way1.insert(*l_iter);
+        l_redacted = true;
+        while( (l_way1 = m_api.get_way_version(p_way2.get_id(),l_redacted_version))==NULL && l_redacted_version)
+          {
+            --l_redacted_version;
+          }
       }
-    std::string l_way_url;
-    m_api.get_object_browse_url(l_way_url,"way",p_way2.get_id());
-    for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = p_way2.get_node_refs().begin();
-	l_iter != p_way2.get_node_refs().end();
-	++l_iter)
+
+    if(l_way1 != NULL)
       {
-	l_nodes_way2.insert(*l_iter);
-	if(l_nodes_way1.find(*l_iter)==l_nodes_way1.end())
-	  {
-	    std::string l_node_url;
-	    m_api.get_object_browse_url(l_node_url,"node",*l_iter);
-	    p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been added to <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
-	  }
+        if(l_redacted)
+          {
+            std::string l_redacted_link ;
+            m_api.get_api_object_url(l_redacted_link,p_way2.get_core_type_str(),p_way2.get_id(),l_redacted_version);            
+            p_stream << "<B>Due to redaction process comparison is done against <A HREF=\""<< l_redacted_link << "\">" << p_way2.get_core_type_str() << " " << p_way2.get_id() << " v" << l_redacted_version << "</A></B><BR>" << std::endl ;
+            m_api.cache(p_way2);
+          }
+
+        p_stream << "<ul>" ;
+        compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_way1),*((const osm_api_data_types::osm_core_element *)&p_way2));
+        std::set<osm_api_data_types::osm_object::t_osm_id> l_nodes_way1;
+        std::set<osm_api_data_types::osm_object::t_osm_id> l_nodes_way2;
+        for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = l_way1->get_node_refs().begin();
+            l_iter != l_way1->get_node_refs().end();
+            ++l_iter)
+          {
+            l_nodes_way1.insert(*l_iter);
+          }
+        std::string l_way_url;
+        m_api.get_object_browse_url(l_way_url,"way",p_way2.get_id());
+        for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = p_way2.get_node_refs().begin();
+            l_iter != p_way2.get_node_refs().end();
+            ++l_iter)
+          {
+            l_nodes_way2.insert(*l_iter);
+            if(l_nodes_way1.find(*l_iter)==l_nodes_way1.end())
+              {
+                std::string l_node_url;
+                m_api.get_object_browse_url(l_node_url,"node",*l_iter);
+                p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been added to <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
+              }
+          }
+        for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = l_way1->get_node_refs().begin();
+            l_iter != l_way1->get_node_refs().end();
+            ++l_iter)
+          {
+            if(l_nodes_way2.find(*l_iter)==l_nodes_way2.end())
+              {
+                std::string l_node_url;
+                m_api.get_object_browse_url(l_node_url,"node",*l_iter);
+                p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been removed from <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
+              }
+          }
+        p_stream << "</ul>" ;
+        delete l_way1;
       }
-    for(std::vector<osm_api_data_types::osm_object::t_osm_id>::const_iterator l_iter = l_way1->get_node_refs().begin();
-	l_iter != l_way1->get_node_refs().end();
-	++l_iter)
+    else
       {
-	if(l_nodes_way2.find(*l_iter)==l_nodes_way2.end())
-	  {
-	    std::string l_node_url;
-	    m_api.get_object_browse_url(l_node_url,"node",*l_iter);
-	    p_stream << "<li><A HREF=\"" << l_node_url << "\">Node " << *l_iter << "</A> has been removed from <A HREF=\"" << l_way_url << "\">Way " << p_way2.get_id() << "</A></li>" << std::endl ;
-	  }
+        p_stream << "<B>Unable to perform comparison because object had been redacted</B><BR>" << std::endl ;
       }
-    p_stream << "</ul>" ;
-    delete l_way1;
   }
 
   //------------------------------------------------------------------------------
@@ -202,55 +254,81 @@ namespace osm_diff_analyzer_user_object
 				     const osm_api_data_types::osm_core_element::t_osm_version p_previous_version,
 				     const osm_api_data_types::osm_relation & p_relation2)
   {
-    const osm_api_data_types::osm_relation * const l_relation1 = m_api.get_relation_version(p_relation2.get_id(),p_previous_version);
-    p_stream << "<ul>" ;
-    compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_relation1),*((const osm_api_data_types::osm_core_element *)&p_relation2));
-    std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*> l_members_relation1;
-    std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*> l_members_relation2;
-    for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = l_relation1->get_members().begin();
-	l_iter != l_relation1->get_members().end();
-	++l_iter)
+    const osm_api_data_types::osm_relation * l_relation1 = m_api.get_relation_version(p_relation2.get_id(),p_previous_version);
+    bool l_redacted = false;
+    osm_api_data_types::osm_core_element::t_osm_version l_redacted_version = p_previous_version - 1;
+    if(l_relation1 == NULL)
       {
-	l_members_relation1.insert(std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::value_type((*l_iter)->get_object_ref(),*l_iter));
+        l_redacted = true;
+        while( (l_relation1 = m_api.get_relation_version(p_relation2.get_id(),l_redacted_version))==NULL && l_redacted_version)
+          {
+            --l_redacted_version;
+          }
       }
-    for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = p_relation2.get_members().begin();
-	l_iter != p_relation2.get_members().end();
-	++l_iter)
+
+    if(l_relation1 != NULL)
       {
-	const osm_api_data_types::osm_object::t_osm_id l_member_id = (*l_iter)->get_object_ref();
-	l_members_relation2.insert(std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::value_type(l_member_id,*l_iter));
-	std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::const_iterator l_member_iter = l_members_relation1.find(l_member_id);
-	if(l_member_iter==l_members_relation1.end())
-	  {
-	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
-	    std::string l_object_url;
-	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
-	    p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been added with role \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
-	  }
-	else if(l_member_iter->second->get_role() != (*l_iter)->get_role())
-	  {
-	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str(l_member_iter->second->get_type()));
-	    std::string l_object_url;
-	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
-	    p_stream << "<li>Role of <A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has changed from \"" << l_member_iter->second->get_role() << "\" to \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
-	  }
+        if(l_redacted)
+          {
+            std::string l_redacted_link ;
+            m_api.get_api_object_url(l_redacted_link,p_relation2.get_core_type_str(),p_relation2.get_id(),l_redacted_version);            
+            p_stream << "<B>Due to redaction process comparison is done against <A HREF=\""<< l_redacted_link << "\">" << p_relation2.get_core_type_str() << " " << p_relation2.get_id() << " v" << l_redacted_version << "</A></B><BR>" << std::endl ;
+            m_api.cache(p_relation2);
+          }
+
+        p_stream << "<ul>" ;
+        compare(p_stream,*((const osm_api_data_types::osm_core_element *)l_relation1),*((const osm_api_data_types::osm_core_element *)&p_relation2));
+        std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*> l_members_relation1;
+        std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*> l_members_relation2;
+        for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = l_relation1->get_members().begin();
+            l_iter != l_relation1->get_members().end();
+            ++l_iter)
+          {
+            l_members_relation1.insert(std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::value_type((*l_iter)->get_object_ref(),*l_iter));
+          }
+        for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = p_relation2.get_members().begin();
+            l_iter != p_relation2.get_members().end();
+            ++l_iter)
+          {
+            const osm_api_data_types::osm_object::t_osm_id l_member_id = (*l_iter)->get_object_ref();
+            l_members_relation2.insert(std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::value_type(l_member_id,*l_iter));
+            std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::const_iterator l_member_iter = l_members_relation1.find(l_member_id);
+            if(l_member_iter==l_members_relation1.end())
+              {
+                std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
+                std::string l_object_url;
+                m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+                p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been added with role \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
+              }
+            else if(l_member_iter->second->get_role() != (*l_iter)->get_role())
+              {
+                std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str(l_member_iter->second->get_type()));
+                std::string l_object_url;
+                m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+                p_stream << "<li>Role of <A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has changed from \"" << l_member_iter->second->get_role() << "\" to \"" << (*l_iter)->get_role() << "\"</li>" << std::endl ;
+              }
+          }
+        for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = l_relation1->get_members().begin();
+            l_iter != l_relation1->get_members().end();
+            ++l_iter)
+          {
+            const osm_api_data_types::osm_object::t_osm_id l_member_id = (*l_iter)->get_object_ref();
+            std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::const_iterator l_member_iter = l_members_relation1.find(l_member_id);
+            if(l_member_iter==l_members_relation2.end())
+              {
+                std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
+                std::string l_object_url;
+                m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
+                p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been removed</li>" << std::endl ;
+              }
+          }
+        p_stream << "</ul>" ;
+        delete l_relation1;
       }
-    for(std::vector<osm_api_data_types::osm_relation_member*>::const_iterator l_iter = l_relation1->get_members().begin();
-	l_iter != l_relation1->get_members().end();
-	++l_iter)
+    else
       {
-	const osm_api_data_types::osm_object::t_osm_id l_member_id = (*l_iter)->get_object_ref();
-	std::map<osm_api_data_types::osm_object::t_osm_id,osm_api_data_types::osm_relation_member*>::const_iterator l_member_iter = l_members_relation1.find(l_member_id);
-	if(l_member_iter==l_members_relation2.end())
-	  {
-	    std::string l_type_str(osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()));
-	    std::string l_object_url;
-	    m_api.get_object_browse_url(l_object_url,l_type_str,l_member_id);
-	    p_stream << "<li><A HREF=\"" << l_object_url << "\">" << l_type_str << " " << l_member_id << "</A> has been removed</li>" << std::endl ;
-	  }
+        p_stream << "<B>Unable to perform comparison because object had been redacted</B><BR>" << std::endl ;
       }
-    p_stream << "</ul>" ;
-    delete l_relation1;
   }
 
   //------------------------------------------------------------------------------
