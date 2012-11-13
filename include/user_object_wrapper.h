@@ -23,8 +23,8 @@
 
 #include "general_analyzer_if.h"
 #include "module_library_if.h"
+#include <inttypes.h>
 
-#include <stdint.h>
 namespace osm_diff_analyzer_user_object
 {
   class user_object_common_api;

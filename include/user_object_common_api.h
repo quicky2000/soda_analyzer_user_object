@@ -171,10 +171,10 @@ namespace osm_diff_analyzer_user_object
   //---------------------------------------------------------------------------- 
   user_object_common_api::user_object_common_api(osm_diff_analyzer_if::module_library_if::t_register_function p_func) 
     {
-      void * l_api_ptr[COMMON_API_IF_SIZE];
+      uintptr_t l_api_ptr[COMMON_API_IF_SIZE];
       for(uint32_t l_index = 0 ;l_index < COMMON_API_IF_SIZE ; ++l_index)
         {
-          l_api_ptr[l_index] = NULL;
+          l_api_ptr[l_index] = 0;
         }
       p_func(l_api_ptr,COMMON_API_IF_SIZE);
 

@@ -26,7 +26,7 @@
 #include "user_object_analyzer_db.h"
 #include "user_object_common_api.h"
 #include "module_configuration.h"
-#include "stdint.h"
+#include <inttypes.h>
 #include <map>
 #include <fstream>
 #include <cstdlib>

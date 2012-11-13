@@ -67,16 +67,16 @@ namespace osm_diff_analyzer_user_object
 
   extern "C"
   {
-    void register_module(void** p_api,uint32_t p_api_size)
+    void register_module(uintptr_t* p_api,uint32_t p_api_size)
     {
       assert(p_api_size == MODULE_LIBRARY_IF_API_SIZE);
       std::cout << "Registration of user_object analyzer API " << std::endl ;
-      p_api[osm_diff_analyzer_if::module_library_if::GET_API_VERSION] = (void*)user_object_wrapper::get_api_version;
-      p_api[osm_diff_analyzer_if::module_library_if::GET_API_SIZE] = (void*)user_object_wrapper::get_api_size;
-      p_api[osm_diff_analyzer_if::module_library_if::GET_DESCRIPTION] = (void*)user_object_wrapper::get_user_object_description;
-      p_api[osm_diff_analyzer_if::module_library_if::CREATE_ANALYZER] = (void*)user_object_wrapper::create_user_object_analyzer;
-      p_api[osm_diff_analyzer_if::module_library_if::REQUIRE_COMMON_API] = (void*)user_object_wrapper::require_common_api;
-      p_api[osm_diff_analyzer_if::module_library_if::CLEAN_UP] = (void*)user_object_wrapper::cleanup;
+      p_api[osm_diff_analyzer_if::module_library_if::GET_API_VERSION] = (uintptr_t)user_object_wrapper::get_api_version;
+      p_api[osm_diff_analyzer_if::module_library_if::GET_API_SIZE] = (uintptr_t)user_object_wrapper::get_api_size;
+      p_api[osm_diff_analyzer_if::module_library_if::GET_DESCRIPTION] = (uintptr_t)user_object_wrapper::get_user_object_description;
+      p_api[osm_diff_analyzer_if::module_library_if::CREATE_ANALYZER] = (uintptr_t)user_object_wrapper::create_user_object_analyzer;
+      p_api[osm_diff_analyzer_if::module_library_if::REQUIRE_COMMON_API] = (uintptr_t)user_object_wrapper::require_common_api;
+      p_api[osm_diff_analyzer_if::module_library_if::CLEAN_UP] = (uintptr_t)user_object_wrapper::cleanup;
     }
   }
 }
