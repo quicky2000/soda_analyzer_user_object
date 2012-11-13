@@ -112,8 +112,9 @@ namespace osm_diff_analyzer_user_object
     inline void cache(const osm_api_data_types::osm_way & p_way);
     inline void cache(const osm_api_data_types::osm_relation & p_relation);
     inline void cache(const osm_api_data_types::osm_object::t_osm_id & p_id,
-                           const std::string & p_user_name,
-                           const std::string & p_date);
+		      const std::string & p_user_name,
+		      const osm_api_data_types::osm_object::t_osm_id & p_latest_changeset,
+		      const std::string & p_date);
     inline const std::vector<osm_api_data_types::osm_change*> * const get_osm_change_file_content(const std::string & p_file_name);
     inline void get_osm_file_content(const std::string & p_file_name,
 				     std::vector<osm_api_data_types::osm_node*> & p_nodes,
@@ -393,10 +394,11 @@ namespace osm_diff_analyzer_user_object
   }
   //----------------------------------------------------------------------------
   void user_object_common_api::cache(const osm_api_data_types::osm_object::t_osm_id & p_id,
-                                          const std::string & p_user_name,
-                                          const std::string & p_date)
+				     const std::string & p_user_name,
+				     const osm_api_data_types::osm_object::t_osm_id & p_latest_changeset,
+				     const std::string & p_date)
   {
-    m_cache_user(p_id,p_user_name,p_date);
+    m_cache_user(p_id,p_user_name,p_latest_changeset,p_date);
   }
   //----------------------------------------------------------------------------
   const std::vector<osm_api_data_types::osm_change*> * const user_object_common_api::get_osm_change_file_content(const std::string & p_file_name)
