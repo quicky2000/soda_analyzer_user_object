@@ -34,9 +34,7 @@ namespace osm_diff_analyzer_user_object
     osm_diff_analyzer_cpp_if::cpp_analyzer_base("user_analyser",p_conf->get_name(),""),
     m_api(p_api),
     m_done(false),
-#ifndef _WIN32
-    m_report(NULL),
-#endif
+    m_report(),
     m_user_name(""),
     m_db(get_name()+".sqlite3")
   {
@@ -84,7 +82,7 @@ namespace osm_diff_analyzer_user_object
     
     // Creating report
     m_report.open(l_complete_report_file_name.c_str());
-    if(m_report == NULL)
+    if(m_report.fail())
       {
 	std::cout << "ERROR : unabled to open \"" << l_complete_report_file_name << "\"" << std::endl ;
 	exit(EXIT_FAILURE);
