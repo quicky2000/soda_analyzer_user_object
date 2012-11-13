@@ -20,13 +20,9 @@
 */
 #include "user_object_analyzer_db.h"
 #include "osm_api_data_types.h"
-#include <sqlite3.h>
+#include "my_sqlite3.h"
 #include <iostream>
 #include <cstdlib>
-
-#if SQLITE_VERSION_NUMBER < 3006000
-#define sqlite3_prepare_v2 sqlite3_prepare
-#endif
 
 namespace osm_diff_analyzer_user_object
 {
@@ -42,7 +38,7 @@ namespace osm_diff_analyzer_user_object
 
   {
     // Opening the database
-    int l_status = sqlite3_open(p_name.c_str(), &m_db);
+    int l_status = sqlite3_open_v2(p_name.c_str(), &m_db,SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,NULL);
     if(l_status == SQLITE_OK)
       {
         create_id_table(osm_api_data_types::osm_node::get_type_str());
@@ -157,14 +153,12 @@ namespace osm_diff_analyzer_user_object
 
     // Reset bindings because they are now useless
     //--------------------------------------------
-#if SQLITE_VERSION_NUMBER > 3006000
     l_status = sqlite3_clear_bindings(p_stmt);
     if(l_status != SQLITE_OK)
       {
         std::cout << "ERROR during reset of bindings of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
         exit(-1);
       }
-#endif
   }
 
 
@@ -282,14 +276,12 @@ namespace osm_diff_analyzer_user_object
 
     // Reset bindings because they are now useless
     //--------------------------------------------
-#if SQLITE_VERSION_NUMBER > 3006000
     l_status = sqlite3_clear_bindings(p_stmt);
     if(l_status != SQLITE_OK)
       {
 	std::cout << "ERROR during reset of bindings of contains statement : " << sqlite3_errmsg(m_db) <<  " : " << __FILE__ << ":" << __LINE__ << std::endl ;     
 	exit(-1);
       }
-#endif
     return l_result;
   }
 
@@ -325,7 +317,7 @@ namespace osm_diff_analyzer_user_object
     sqlite3_finalize(m_insert_relation_id_stmt);
     sqlite3_finalize(m_insert_way_id_stmt);
     sqlite3_finalize(m_insert_node_id_stmt);
-    sqlite3_close(m_db);     
+    sqlite3_close_v2(m_db);     
   }
 }
 //EOF
