@@ -59,40 +59,6 @@ namespace osm_diff_analyzer_user_object
     std::cout << get_name() << " : parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
     m_user_name = l_iter->second;
     
-
-    std::string l_report_file_name = m_user_name+"_object_report";
-    std::string l_complete_report_file_name = l_report_file_name + ".html";
-    std::ifstream l_test_file;
-    uint32_t l_number = 0;
-    bool l_continu = true;
-    while(l_continu)
-      {
-        l_test_file.open(l_complete_report_file_name.c_str());
-        l_continu = l_test_file.is_open();
-        if(l_continu)
-          {
-            ++l_number;
-            std::stringstream l_number_str;
-            l_number_str << l_number;
-            l_complete_report_file_name = l_report_file_name + "_" + l_number_str.str() + ".html";
-            l_test_file.close();
-          }
-      }
-
-    
-    // Creating report
-    m_report.open(l_complete_report_file_name.c_str());
-    if(m_report.fail())
-      {
-	std::cout << "ERROR : unabled to open \"" << l_complete_report_file_name << "\"" << std::endl ;
-	exit(EXIT_FAILURE);
-      }
-    m_report << "<html>" << std::endl ;
-    m_report << "\t<head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">" << std::endl ;
-    m_report << "\t\t<title>" << m_user_name << " object report</title>" << std::endl ;
-    m_report << "\t</head>" << std::endl ;
-    m_report << "\t<body><H1>" << m_user_name << " object report</H1>" << std::endl ;
-
     // init_file parameter management
     l_iter = l_conf_parameters.find("init_file");
     if(l_iter != l_conf_parameters.end())
@@ -180,13 +146,54 @@ namespace osm_diff_analyzer_user_object
   }
 
   //------------------------------------------------------------------------------
+  void user_object_analyzer::create_report(void)
+  {
+    std::string l_report_file_name = m_user_name+"_object_report";
+    std::string l_complete_report_file_name = l_report_file_name + ".html";
+    std::ifstream l_test_file;
+    uint32_t l_number = 0;
+    bool l_continu = true;
+    while(l_continu)
+      {
+        l_test_file.open(l_complete_report_file_name.c_str());
+        l_continu = l_test_file.is_open();
+        if(l_continu)
+          {
+            ++l_number;
+            std::stringstream l_number_str;
+            l_number_str << l_number;
+            l_complete_report_file_name = l_report_file_name + "_" + l_number_str.str() + ".html";
+            l_test_file.close();
+          }
+      }
+
+    
+    // Creating report
+    m_report.open(l_complete_report_file_name.c_str());
+    if(m_report.fail())
+      {
+	std::cout << "ERROR : unabled to open \"" << l_complete_report_file_name << "\"" << std::endl ;
+	exit(EXIT_FAILURE);
+      }
+    m_report << "<html>" << std::endl ;
+    m_report << "\t<head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">" << std::endl ;
+    m_report << "\t\t<title>" << m_user_name << " object report</title>" << std::endl ;
+    m_report << "\t</head>" << std::endl ;
+    m_report << "\t<body><H1>" << m_user_name << " object report</H1>" << std::endl ;
+
+  }
+
+  //------------------------------------------------------------------------------
   user_object_analyzer::~user_object_analyzer(void)
   {
 
-    m_report << "</body>" << std::endl ;
-    m_report << "</html>" << std::endl ;
-
-    m_report.close();
+    if(m_report.is_open())
+      {
+        m_report << "</body>" << std::endl ;
+        m_report << "</html>" << std::endl ;
+        
+        m_report.close();
+      }
   }
 
   //------------------------------------------------------------------------------
