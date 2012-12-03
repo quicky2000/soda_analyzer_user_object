@@ -71,11 +71,25 @@ namespace osm_diff_analyzer_user_object
 	    std::vector<osm_api_data_types::osm_node*> l_nodes;
 	    std::vector<osm_api_data_types::osm_way*> l_ways;
 	    std::vector<osm_api_data_types::osm_relation*> l_relations;
+
+	    std::set<osm_api_data_types::osm_object::t_osm_id> l_nodes_under_survey;
+	    m_db.get_all_node_ids(l_nodes_under_survey);
+	    std::set<osm_api_data_types::osm_object::t_osm_id> l_ways_under_survey;
+	    m_db.get_all_way_ids(l_ways_under_survey);
+	    std::set<osm_api_data_types::osm_object::t_osm_id> l_relations_under_survey;
+	    m_db.get_all_relation_ids(l_relations_under_survey);
+
+            std::set<osm_api_data_types::osm_node*> l_nodes_to_survey;
+            std::set<osm_api_data_types::osm_way*> l_ways_to_survey;
+            std::set<osm_api_data_types::osm_relation*> l_relations_to_survey;
+
+            std::cout << "Parse OSM file" << std::endl ;
 	    m_api.get_osm_file_content(l_file_name,
 				       l_nodes,
 				       l_ways,
 				       l_relations);
 
+            std::cout << "Check if objects are already under survey" << std::endl ;
 	    uint32_t l_nb_added_nodes= 0;
 	    uint32_t l_nb_added_ways= 0;
 	    uint32_t l_nb_added_relations= 0;
@@ -83,39 +97,89 @@ namespace osm_diff_analyzer_user_object
 		l_iter != l_nodes.end();
 		++l_iter)
 	      {
-		if(!m_db.contains(*l_iter))
+		if(l_nodes_under_survey.find((*l_iter)->get_id()) == l_nodes_under_survey.end()/* && !m_db.contains(*l_iter)*/)
 		  {
-		    m_db.insert(*l_iter);
-		    m_api.cache(**l_iter);
+                    l_nodes_to_survey.insert(*l_iter);
+		    l_nodes_under_survey.insert((*l_iter)->get_id());
+                    //		    m_db.insert(*l_iter);
+                    //  m_api.cache(**l_iter);
 		    ++l_nb_added_nodes;
 		  }
+	      }
+	    for(std::vector<osm_api_data_types::osm_way*>::const_iterator l_iter = l_ways.begin();
+		l_iter != l_ways.end();
+		++l_iter)
+	      {
+		if(l_ways_under_survey.find((*l_iter)->get_id()) == l_ways_under_survey.end() /*&& !m_db.contains(*l_iter)*/)
+		  {
+                    l_ways_to_survey.insert(*l_iter);
+		    l_ways_under_survey.insert((*l_iter)->get_id());
+                    //  m_db.insert(*l_iter);
+                    // m_api.cache(**l_iter);
+		    ++l_nb_added_ways;
+		  }
+	      }
+	    for(std::vector<osm_api_data_types::osm_relation*>::const_iterator l_iter = l_relations.begin();
+		l_iter != l_relations.end();
+		++l_iter)
+	      {
+		if(l_relations_under_survey.find((*l_iter)->get_id()) == l_relations_under_survey.end() /*&& !m_db.contains(*l_iter)*/)
+		  {
+                    l_relations_to_survey.insert(*l_iter);
+		    l_relations_under_survey.insert((*l_iter)->get_id());
+                    //   m_db.insert(*l_iter);
+                    //  m_api.cache(**l_iter);
+		    ++l_nb_added_relations;
+		  }
+	      }
+
+            std::cout << "Survey objects that are not already under survey" << std::endl ;            
+            // Insertion in database
+            for(std::set<osm_api_data_types::osm_node*>::const_iterator l_iter = l_nodes_to_survey.begin();
+                l_iter != l_nodes_to_survey.end();
+                ++l_iter)
+              {
+
+		m_db.insert(*l_iter);
+		//		m_api.cache(**l_iter);                
+              }
+            
+            for(std::set<osm_api_data_types::osm_way*>::const_iterator l_iter = l_ways_to_survey.begin();
+                l_iter != l_ways_to_survey.end();
+                ++l_iter)
+              {
+		m_db.insert(*l_iter);
+		//		m_api.cache(**l_iter);                
+              }
+            
+            for(std::set<osm_api_data_types::osm_relation*>::const_iterator l_iter = l_relations_to_survey.begin();
+                l_iter != l_relations_to_survey.end();
+                ++l_iter)
+              {
+		m_db.insert(*l_iter);
+		//		m_api.cache(**l_iter);                
+              }
+
+	    //Free memory
+	    std::cout << "Memory clean" << std::endl ;
+	    for(std::vector<osm_api_data_types::osm_node*>::const_iterator l_iter = l_nodes.begin();
+		l_iter != l_nodes.end();
+		++l_iter)
+	      {
 		delete *l_iter;
 	      }
 	    for(std::vector<osm_api_data_types::osm_way*>::const_iterator l_iter = l_ways.begin();
 		l_iter != l_ways.end();
 		++l_iter)
 	      {
-		if(!m_db.contains(*l_iter))
-		  {
-		    m_db.insert(*l_iter);
-		    m_api.cache(**l_iter);
-		    ++l_nb_added_ways;
-		  }
 		delete *l_iter;
 	      }
 	    for(std::vector<osm_api_data_types::osm_relation*>::const_iterator l_iter = l_relations.begin();
 		l_iter != l_relations.end();
 		++l_iter)
 	      {
-		if(!m_db.contains(*l_iter))
-		  {
-		    m_db.insert(*l_iter);
-		    m_api.cache(**l_iter);
-		    ++l_nb_added_relations;
-		  }
 		delete *l_iter;
 	      }
-
 	    std::cout << get_name() << " " << l_nb_added_nodes << " nodes put under survey" << std::endl ;
 	    std::cout << get_name() << " " << l_nb_added_ways << " ways put under survey" << std::endl ;
 	    std::cout << get_name() << " " << l_nb_added_relations << " relations put under survey" << std::endl ;
@@ -131,7 +195,6 @@ namespace osm_diff_analyzer_user_object
 		l_iter != l_changes->end();
 		++l_iter)
 	      {
-		std::cout << **l_iter;
 		delete *l_iter;
 	      }
 	    delete l_changes;

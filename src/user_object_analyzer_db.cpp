@@ -34,8 +34,11 @@ namespace osm_diff_analyzer_user_object
     m_insert_relation_id_stmt(NULL),                       
     m_contains_node_id_stmt(NULL),
     m_contains_way_id_stmt(NULL),              
-    m_contains_relation_id_stmt(NULL)                       
-
+    m_contains_relation_id_stmt(NULL),
+    m_get_all_node_id_stmt(NULL),
+    m_get_all_way_id_stmt(NULL),              
+    m_get_all_relation_id_stmt(NULL),
+    m_transaction_opened(false)
   {
     // Opening the database
     int l_status = sqlite3_open_v2(p_name.c_str(), &m_db,SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE,NULL);
@@ -50,6 +53,9 @@ namespace osm_diff_analyzer_user_object
         prepare_contains_id_stmt(osm_api_data_types::osm_node::get_type_str(),m_contains_node_id_stmt);
         prepare_contains_id_stmt(osm_api_data_types::osm_way::get_type_str(),m_contains_way_id_stmt);
         prepare_contains_id_stmt(osm_api_data_types::osm_relation::get_type_str(),m_contains_relation_id_stmt);
+        prepare_get_all_stmt(osm_api_data_types::osm_node::get_type_str(),m_get_all_node_id_stmt);
+        prepare_get_all_stmt(osm_api_data_types::osm_way::get_type_str(),m_get_all_way_id_stmt);
+        prepare_get_all_stmt(osm_api_data_types::osm_relation::get_type_str(),m_get_all_relation_id_stmt);
       }
     else
       {
@@ -89,6 +95,20 @@ namespace osm_diff_analyzer_user_object
   }
 
   //----------------------------------------------------------------------------
+  void user_object_analyzer_db::prepare_get_all_stmt(const std::string & p_name,sqlite3_stmt * & p_stmt_ptr)
+  {
+    std::string l_table_name = p_name + "_ids";
+    // Preparing named_item get_by_id statements
+    //--------------------------------------------
+    int	l_status = sqlite3_prepare_v2(m_db,("SELECT Id FROM " + l_table_name).c_str(),-1,&p_stmt_ptr,NULL);
+    if(l_status != SQLITE_OK)
+      {
+        std::cout << "ERROR during preparation of statement to get " << p_name << " item by id: " << sqlite3_errmsg(m_db) << std::endl ;     
+        exit(-1);
+      }
+  }
+
+  //----------------------------------------------------------------------------
   void user_object_analyzer_db::create_id_table(const std::string & p_name)
   {
     sqlite3_stmt *l_stmt = NULL;
@@ -111,12 +131,50 @@ namespace osm_diff_analyzer_user_object
     sqlite3_finalize(l_stmt);  
   }
 
+
+  //----------------------------------------------------------------------------
+  void user_object_analyzer_db::get_all_ids(sqlite3_stmt * p_stmt,
+					    std::set<osm_api_data_types::osm_object::t_osm_id> & p_ids,
+					    const std::string & p_type)
+  {
+    int l_status = 0;
+    // Executing statement
+    //---------------------
+    while( (l_status = sqlite3_step(p_stmt)) == SQLITE_ROW)
+      {
+	p_ids.insert(sqlite3_column_int64(p_stmt,0));
+      }
+    if(l_status != SQLITE_DONE)
+      {
+	std::cout << "ERROR during listing of " << p_type << " ids : " << sqlite3_errmsg(m_db) << std::endl ;
+	exit(-1);
+      }
+
+#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
+    std::cout <<  p_type << " ids successfully listed" << std::endl ;
+#endif
+
+    // Reset the statement for the next use
+    //--------------------------------------
+    l_status = sqlite3_reset(p_stmt);  
+    if(l_status != SQLITE_OK)
+      {
+	std::cout << "ERROR during reset of " << p_type << " get_all_ids statement : " << sqlite3_errmsg(m_db) << std::endl ;     
+	exit(-1);
+      }
+  }
+
   //----------------------------------------------------------------------------
   void user_object_analyzer_db::insert(sqlite3_stmt * p_stmt,
                                        osm_api_data_types::osm_object::t_osm_id p_id,
                                        const std::string & p_type)
   {
     assert(p_stmt);
+    if(!m_transaction_opened)
+      {
+        m_transaction_opened = true;
+        sqlite3_exec(m_db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+      }
 
     // Binding values to statement
     //----------------------------
@@ -174,13 +232,13 @@ namespace osm_diff_analyzer_user_object
     insert(m_insert_way_id_stmt,p_way->get_id(),osm_api_data_types::osm_way::get_type_str());
     const std::vector<osm_api_data_types::osm_core_element::t_osm_id> & l_node_refs = p_way->get_node_refs();
     for(std::vector<osm_api_data_types::osm_core_element::t_osm_id>::const_iterator l_iter = l_node_refs.begin();
-        l_iter != l_node_refs.end();
-        ++l_iter)
+	l_iter != l_node_refs.end();
+	++l_iter)
       {
-	if(!contains(m_contains_node_id_stmt,*l_iter))
-	  {
-	    insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
-	  }
+    	if(!contains(m_contains_node_id_stmt,*l_iter))
+    	  {
+    	    insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
+    	  }
       }
   }
 
@@ -190,40 +248,47 @@ namespace osm_diff_analyzer_user_object
     insert(m_insert_relation_id_stmt,p_relation->get_id(),osm_api_data_types::osm_relation::get_type_str());
     const std::vector<osm_api_data_types::osm_relation_member *> & l_members = p_relation->get_members();
     for(std::vector<osm_api_data_types::osm_relation_member *>::const_iterator l_iter = l_members.begin();
-        l_iter != l_members.end();
-        ++l_iter)
+	l_iter != l_members.end();
+	++l_iter)
       {
-	switch((*l_iter)->get_type())
-	  {
-	  case osm_api_data_types::osm_core_element::NODE:
-	    if(!contains(m_contains_node_id_stmt,(*l_iter)->get_object_ref()))
-	      {
-		insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
-	      }
-	    break;
-	  case osm_api_data_types::osm_core_element::WAY:
-	    if(!contains(m_contains_way_id_stmt,(*l_iter)->get_object_ref()))
-	      {
-		insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
-	      }
-	    break;
-	  case osm_api_data_types::osm_core_element::RELATION:
-	    if(!contains(m_contains_relation_id_stmt,(*l_iter)->get_object_ref()))
-	      {
-		insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
-	      }
-	    break;
-	  case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-	    std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
-	    exit(-1);
-	    break;
-	  }
+ 	switch((*l_iter)->get_type())
+ 	  {
+ 	  case osm_api_data_types::osm_core_element::NODE:
+ 	    if(!contains(m_contains_node_id_stmt,(*l_iter)->get_object_ref()))
+ 	      {
+ 		insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
+ 	      }
+ 	    break;
+ 	  case osm_api_data_types::osm_core_element::WAY:
+ 	    if(!contains(m_contains_way_id_stmt,(*l_iter)->get_object_ref()))
+ 	      {
+ 		insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
+ 	      }
+ 	    break;
+ 	  case osm_api_data_types::osm_core_element::RELATION:
+ 	    if(!contains(m_contains_relation_id_stmt,(*l_iter)->get_object_ref()))
+ 	      {
+ 		insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
+ 	      }
+ 	    break;
+ 	  case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
+ 	    std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
+ 	    exit(-1);
+ 	    break;
+ 	  }
 	  
       }
   }
   //----------------------------------------------------------------------------
   bool user_object_analyzer_db::contains( sqlite3_stmt * p_stmt,const osm_api_data_types::osm_object::t_osm_id & p_id)
   {
+
+    if(m_transaction_opened)
+      {
+        m_transaction_opened = false;
+        sqlite3_exec(m_db, "END TRANSACTION", NULL, NULL, NULL);
+      }
+
     bool l_result = false;
     // Binding values to statement
     //----------------------------
@@ -239,7 +304,7 @@ namespace osm_diff_analyzer_user_object
     l_status = sqlite3_step(p_stmt);
     if( l_status == SQLITE_ROW)
       {
-#ifdef ENABLE_SUCCESS_STATUS_DISPLAY
+#ifdef ENABLE_SUCCESS_STATUS_DISPLAY 
 	std::cout << p_element->get_core_type_str() << " successfully selected" << std::endl ;
 #endif
 	// Ensure that ID is unique
@@ -311,6 +376,9 @@ namespace osm_diff_analyzer_user_object
   //----------------------------------------------------------------------------
   user_object_analyzer_db::~user_object_analyzer_db(void)
   {
+    sqlite3_finalize(m_get_all_relation_id_stmt);
+    sqlite3_finalize(m_get_all_way_id_stmt);
+    sqlite3_finalize(m_get_all_node_id_stmt);
     sqlite3_finalize(m_contains_relation_id_stmt);
     sqlite3_finalize(m_contains_way_id_stmt);
     sqlite3_finalize(m_contains_node_id_stmt);
