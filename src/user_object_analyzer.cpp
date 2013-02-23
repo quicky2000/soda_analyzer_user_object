@@ -38,6 +38,8 @@ namespace osm_diff_analyzer_user_object
     m_user_name(""),
     m_db(get_name()+".sqlite3")
   {
+    // Register module to be able to use User Interface
+    m_api.ui_register_module(*this,get_name());
 
     std::ifstream l_old_file("user_object.sqlite3");
     if(l_old_file.is_open())
@@ -56,7 +58,11 @@ namespace osm_diff_analyzer_user_object
 	std::cout << "ERROR : missing mandatory \"user_name\" parameter in module \"" << get_name() <<"\"" << std::endl ;
 	exit(-1);
       }
-    std::cout << get_name() << " : parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+
+    std::stringstream l_stream;
+    l_stream << get_name() << " : parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+    m_api.ui_append_log_text(*this,l_stream.str());
+
     m_user_name = l_iter->second;
     
     // init_file parameter management
@@ -65,7 +71,11 @@ namespace osm_diff_analyzer_user_object
       {
 	std::string l_file_name = l_iter->second;
 	std::string l_file_extension = l_file_name.substr(l_file_name.size()-4);
-	std::cout << "Extension is \"" << l_file_extension << "\"" << std::endl ;
+	{
+	  std::stringstream l_stream;
+	  l_stream << "Extension is \"" << l_file_extension << "\"" << std::endl ;
+	  m_api.ui_append_log_text(*this,l_stream.str());
+	}
 	if(l_file_extension == ".osm")
 	  {
 	    std::vector<osm_api_data_types::osm_node*> l_nodes;
@@ -83,13 +93,13 @@ namespace osm_diff_analyzer_user_object
             std::set<osm_api_data_types::osm_way*> l_ways_to_survey;
             std::set<osm_api_data_types::osm_relation*> l_relations_to_survey;
 
-            std::cout << "Parse OSM file" << std::endl ;
+            m_api.ui_append_log_text(*this,"Parse OSM file");
 	    m_api.get_osm_file_content(l_file_name,
 				       l_nodes,
 				       l_ways,
 				       l_relations);
 
-            std::cout << "Check if objects are already under survey" << std::endl ;
+            m_api.ui_append_log_text(*this,"Check if objects are already under survey");
 	    uint32_t l_nb_added_nodes= 0;
 	    uint32_t l_nb_added_ways= 0;
 	    uint32_t l_nb_added_relations= 0;
@@ -133,7 +143,7 @@ namespace osm_diff_analyzer_user_object
 		  }
 	      }
 
-            std::cout << "Survey objects that are not already under survey" << std::endl ;            
+            m_api.ui_append_log_text(*this,"Survey objects that are not already under survey");            
             // Insertion in database
             for(std::set<osm_api_data_types::osm_node*>::const_iterator l_iter = l_nodes_to_survey.begin();
                 l_iter != l_nodes_to_survey.end();
@@ -161,7 +171,7 @@ namespace osm_diff_analyzer_user_object
               }
 
 	    //Free memory
-	    std::cout << "Memory clean" << std::endl ;
+	    m_api.ui_append_log_text(*this,"Memory clean");
 	    for(std::vector<osm_api_data_types::osm_node*>::const_iterator l_iter = l_nodes.begin();
 		l_iter != l_nodes.end();
 		++l_iter)
@@ -244,6 +254,7 @@ namespace osm_diff_analyzer_user_object
     m_report << "\t</head>" << std::endl ;
     m_report << "\t<body><H1>" << m_user_name << " object report</H1>" << std::endl ;
 
+    m_api.ui_declare_html_report(*this,l_complete_report_file_name);
   }
 
   //------------------------------------------------------------------------------
@@ -262,7 +273,9 @@ namespace osm_diff_analyzer_user_object
   //------------------------------------------------------------------------------
   void user_object_analyzer::init(const osm_diff_analyzer_if::osm_diff_state * p_diff_state)
   {
-    std::cout << get_name() << " : Starting analyze of diff " << p_diff_state->get_sequence_number() << std::endl ;
+    std::stringstream l_stream;
+    l_stream << "Starting analyze of diff " << p_diff_state->get_sequence_number() << std::endl ;
+    m_api.ui_append_log_text(*this,l_stream.str());
   }
 
   //------------------------------------------------------------------------------
@@ -313,11 +326,15 @@ namespace osm_diff_analyzer_user_object
             break;
           }
       }
-    std::cout << "--------------------------" << std::endl ;
-    std::cout << "Creation : " << m_creation << std::endl ;
-    std::cout << "Modification : " << m_modification << std::endl ;
-    std::cout << "Deletion : " << m_deletion << std::endl ;
-    std::cout << "--------------------------" << std::endl ;
+    {
+      std::stringstream l_stream;
+      l_stream << "--------------------------" << std::endl ;
+      l_stream << "Creation : " << m_creation << std::endl ;
+      l_stream << "Modification : " << m_modification << std::endl ;
+      l_stream << "Deletion : " << m_deletion << std::endl ;
+      l_stream << "--------------------------" << std::endl ;
+      m_api.ui_append_log_text(*this,l_stream.str());
+    }
   }
 
   //------------------------------------------------------------------------------
