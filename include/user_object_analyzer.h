@@ -26,6 +26,7 @@
 #include "user_object_analyzer_db.h"
 #include "user_object_common_api.h"
 #include "module_configuration.h"
+#include "quicky_exception.h"
 #include <inttypes.h>
 #include <map>
 #include <fstream>
@@ -62,7 +63,7 @@ namespace osm_diff_analyzer_user_object
                         const osm_api_data_types::osm_core_element & p_core_element2);
     
     template <class T>
-      void generic_analyze(const osm_api_data_types::osm_core_element * const p_object,
+      void generic_analyze(const osm_api_data_types::osm_core_element & p_object,
 			   const osm_api_data_types::osm_change::t_osm_change_type & p_change);
     user_object_common_api & m_api;
     bool m_done;
@@ -74,26 +75,27 @@ namespace osm_diff_analyzer_user_object
 
   //------------------------------------------------------------------------------
   template <class T>
-    void user_object_analyzer::generic_analyze(const osm_api_data_types::osm_core_element * const p_object,
+    void user_object_analyzer::generic_analyze(const osm_api_data_types::osm_core_element & p_object,
 					       const osm_api_data_types::osm_change::t_osm_change_type & p_change)
     {
 
 #ifndef FORCE_USE_OF_REINTERPRET_CAST
-      const T * const l_casted_object = dynamic_cast<const T * const>(p_object);
+      const T * const l_casted_object = dynamic_cast<const T * const>(&p_object);
 #else
-      const T * const l_casted_object = reinterpret_cast<const T * const>(p_object);
+      const T * const l_casted_object = reinterpret_cast<const T * const>(&p_object);
 #endif // FORCE_USE_OF_REINTERPRET_CAST
       if(l_casted_object==NULL)
         {
-          std::cout << "ERROR : invalid " << T::get_type_str() << " cast for object id " << p_object->get_id() << std::endl ;
-          exit(-1);
+	  std::stringstream l_stream;
+	  l_stream << "ERROR : invalid " << T::get_type_str() << " cast for object id " << p_object.get_id() ;
+	  throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
         }
-      if(l_casted_object->get_user() == m_user_name && !m_db.contains(l_casted_object))
+      if(l_casted_object->get_user() == m_user_name && !m_db.contains(*l_casted_object))
         {
-          m_db.insert(l_casted_object);
+          m_db.insert(*l_casted_object);
           m_api.cache(*l_casted_object);
         }
-      else if(m_db.contains(l_casted_object) && l_casted_object->get_user() != m_user_name)
+      else if(m_db.contains(*l_casted_object) && l_casted_object->get_user() != m_user_name)
         {
           std::stringstream l_id_str;
           l_id_str << l_casted_object->get_id();

@@ -23,6 +23,8 @@
 #include "my_sqlite3.h"
 #include <iostream>
 #include <cstdlib>
+#include <sstream>
+#include "quicky_exception.h"
 
 namespace osm_diff_analyzer_user_object
 {
@@ -61,7 +63,9 @@ namespace osm_diff_analyzer_user_object
       {
         std::cerr << "Can't open database \"" << p_name << "\" : " << sqlite3_errmsg(m_db) << std::endl ;
       }
+#ifdef DEBUG
     std::cout << "Database \"" << p_name << "\" successfully opened" << std::endl ; 
+#endif
   }
    
   //----------------------------------------------------------------------------
@@ -73,8 +77,9 @@ namespace osm_diff_analyzer_user_object
     int l_status = sqlite3_prepare_v2(m_db,("INSERT INTO " + l_table_name + " (Id ) VALUES ($id)").c_str(),-1,&p_stmt_ptr,NULL);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during preparation of statement to create id in table \"" << l_table_name << "\" : " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during preparation of statement to create id in table \"" << l_table_name << "\" : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
   }
 
@@ -87,8 +92,9 @@ namespace osm_diff_analyzer_user_object
     int l_status = sqlite3_prepare_v2(m_db,("SELECT Id FROM " + l_table_name + " WHERE Id == $id").c_str(),-1,&p_stmt_ptr,NULL);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during preparation of statement to get " << p_name << " item by id: " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during preparation of statement to get " << p_name << " item by id: " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     
@@ -103,8 +109,9 @@ namespace osm_diff_analyzer_user_object
     int	l_status = sqlite3_prepare_v2(m_db,("SELECT Id FROM " + l_table_name).c_str(),-1,&p_stmt_ptr,NULL);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during preparation of statement to get " << p_name << " item by id: " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during preparation of statement to get " << p_name << " item by id: " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
   }
 
@@ -118,36 +125,39 @@ namespace osm_diff_analyzer_user_object
     int l_status = sqlite3_prepare_v2(m_db,("CREATE TABLE IF NOT EXISTS " + l_table_name +" ( Id INTEGER PRIMARY KEY);").c_str(),-1,&l_stmt,NULL);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during preparation of statement to create table \"" << l_table_name << "\" : " << sqlite3_errmsg(m_db) << std::endl ;
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during preparation of statement to create table \"" << l_table_name << "\" : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
     
     l_status = sqlite3_step(l_stmt);
     if(!l_status == SQLITE_DONE)
       {
-        std::cout << "ERROR during creation of \"" << l_table_name << "\" table : " << sqlite3_errmsg(m_db) << std::endl ;
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during creation of \"" << l_table_name << "\" table : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
     sqlite3_finalize(l_stmt);  
   }
 
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::get_all_ids(sqlite3_stmt * p_stmt,
+  void user_object_analyzer_db::get_all_ids(sqlite3_stmt & p_stmt,
 					    std::set<osm_api_data_types::osm_object::t_osm_id> & p_ids,
 					    const std::string & p_type)
   {
     int l_status = 0;
     // Executing statement
     //---------------------
-    while( (l_status = sqlite3_step(p_stmt)) == SQLITE_ROW)
+    while( (l_status = sqlite3_step(&p_stmt)) == SQLITE_ROW)
       {
-	p_ids.insert(sqlite3_column_int64(p_stmt,0));
+	p_ids.insert(sqlite3_column_int64(&p_stmt,0));
       }
     if(l_status != SQLITE_DONE)
       {
-	std::cout << "ERROR during listing of " << p_type << " ids : " << sqlite3_errmsg(m_db) << std::endl ;
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during listing of " << p_type << " ids : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
 #ifdef ENABLE_SUCCESS_STATUS_DISPLAY
@@ -156,20 +166,20 @@ namespace osm_diff_analyzer_user_object
 
     // Reset the statement for the next use
     //--------------------------------------
-    l_status = sqlite3_reset(p_stmt);  
+    l_status = sqlite3_reset(&p_stmt);  
     if(l_status != SQLITE_OK)
       {
-	std::cout << "ERROR during reset of " << p_type << " get_all_ids statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during reset of " << p_type << " get_all_ids statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
   }
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::insert(sqlite3_stmt * p_stmt,
+  void user_object_analyzer_db::insert(sqlite3_stmt & p_stmt,
                                        osm_api_data_types::osm_object::t_osm_id p_id,
                                        const std::string & p_type)
   {
-    assert(p_stmt);
     if(!m_transaction_opened)
       {
         m_transaction_opened = true;
@@ -178,16 +188,17 @@ namespace osm_diff_analyzer_user_object
 
     // Binding values to statement
     //----------------------------
-    int l_status = sqlite3_bind_int(p_stmt,sqlite3_bind_parameter_index(p_stmt,"$id"),p_id);
+    int l_status = sqlite3_bind_int(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during binding of Id parameter for insert id statement of " << p_type << " : " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during binding of Id parameter for insert id statement of " << p_type << " : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
   
     // Executing statement
     //---------------------
-    l_status = sqlite3_step(p_stmt);
+    l_status = sqlite3_step(&p_stmt);
     if( l_status == SQLITE_DONE)
       {
 #ifdef ENABLE_SUCCESS_STATUS_DISPLAY
@@ -196,57 +207,60 @@ namespace osm_diff_analyzer_user_object
       }
     else
       {
-        std::cout << "ERROR during insertion of " << p_type << " id " << p_id <<" : " << sqlite3_errmsg(m_db) << std::endl ;
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during insertion of " << p_type << " id " << p_id <<" : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     // Reset the statement for the next use
     //--------------------------------------
-    l_status = sqlite3_reset(p_stmt);  
+    l_status = sqlite3_reset(&p_stmt);  
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during reset of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during reset of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     // Reset bindings because they are now useless
     //--------------------------------------------
-    l_status = sqlite3_clear_bindings(p_stmt);
+    l_status = sqlite3_clear_bindings(&p_stmt);
     if(l_status != SQLITE_OK)
       {
-        std::cout << "ERROR during reset of bindings of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-        exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during reset of bindings of " << p_type << " insert statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
   }
 
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::insert(const osm_api_data_types::osm_node * const p_node)
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_node & p_node)
   {
-    insert(m_insert_node_id_stmt,p_node->get_id(),osm_api_data_types::osm_node::get_type_str());
+    insert(*m_insert_node_id_stmt,p_node.get_id(),osm_api_data_types::osm_node::get_type_str());
   }
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::insert(const osm_api_data_types::osm_way * const p_way)
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_way & p_way)
   {
-    insert(m_insert_way_id_stmt,p_way->get_id(),osm_api_data_types::osm_way::get_type_str());
-    const std::vector<osm_api_data_types::osm_core_element::t_osm_id> & l_node_refs = p_way->get_node_refs();
+    insert(*m_insert_way_id_stmt,p_way.get_id(),osm_api_data_types::osm_way::get_type_str());
+    const std::vector<osm_api_data_types::osm_core_element::t_osm_id> & l_node_refs = p_way.get_node_refs();
     for(std::vector<osm_api_data_types::osm_core_element::t_osm_id>::const_iterator l_iter = l_node_refs.begin();
 	l_iter != l_node_refs.end();
 	++l_iter)
       {
-    	if(!contains(m_contains_node_id_stmt,*l_iter))
+    	if(!contains(*m_contains_node_id_stmt,*l_iter))
     	  {
-    	    insert(m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
+    	    insert(*m_insert_node_id_stmt,*l_iter,osm_api_data_types::osm_node::get_type_str());
     	  }
       }
   }
 
   //----------------------------------------------------------------------------
-  void user_object_analyzer_db::insert(const osm_api_data_types::osm_relation * const p_relation)
+  void user_object_analyzer_db::insert(const osm_api_data_types::osm_relation & p_relation)
   {
-    insert(m_insert_relation_id_stmt,p_relation->get_id(),osm_api_data_types::osm_relation::get_type_str());
-    const std::vector<osm_api_data_types::osm_relation_member *> & l_members = p_relation->get_members();
+    insert(*m_insert_relation_id_stmt,p_relation.get_id(),osm_api_data_types::osm_relation::get_type_str());
+    const std::vector<osm_api_data_types::osm_relation_member *> & l_members = p_relation.get_members();
     for(std::vector<osm_api_data_types::osm_relation_member *>::const_iterator l_iter = l_members.begin();
 	l_iter != l_members.end();
 	++l_iter)
@@ -254,33 +268,34 @@ namespace osm_diff_analyzer_user_object
  	switch((*l_iter)->get_type())
  	  {
  	  case osm_api_data_types::osm_core_element::NODE:
- 	    if(!contains(m_contains_node_id_stmt,(*l_iter)->get_object_ref()))
+ 	    if(!contains(*m_contains_node_id_stmt,(*l_iter)->get_object_ref()))
  	      {
- 		insert(m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
+ 		insert(*m_insert_node_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_node::get_type_str());
  	      }
  	    break;
  	  case osm_api_data_types::osm_core_element::WAY:
- 	    if(!contains(m_contains_way_id_stmt,(*l_iter)->get_object_ref()))
+ 	    if(!contains(*m_contains_way_id_stmt,(*l_iter)->get_object_ref()))
  	      {
- 		insert(m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
+ 		insert(*m_insert_way_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_way::get_type_str());
  	      }
  	    break;
  	  case osm_api_data_types::osm_core_element::RELATION:
- 	    if(!contains(m_contains_relation_id_stmt,(*l_iter)->get_object_ref()))
+ 	    if(!contains(*m_contains_relation_id_stmt,(*l_iter)->get_object_ref()))
  	      {
- 		insert(m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
+ 		insert(*m_insert_relation_id_stmt,(*l_iter)->get_object_ref(),osm_api_data_types::osm_relation::get_type_str());
  	      }
  	    break;
  	  case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
- 	    std::cout << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation->get_id() << std::endl ;
- 	    exit(-1);
+	    std::stringstream l_stream;
+	    l_stream << "ERROR : unexpected member type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str((*l_iter)->get_type()) << "\" for relation " << p_relation.get_id() ;
+	    throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
  	    break;
  	  }
 	  
       }
   }
   //----------------------------------------------------------------------------
-  bool user_object_analyzer_db::contains( sqlite3_stmt * p_stmt,const osm_api_data_types::osm_object::t_osm_id & p_id)
+  bool user_object_analyzer_db::contains( sqlite3_stmt & p_stmt,const osm_api_data_types::osm_object::t_osm_id & p_id)
   {
 
     if(m_transaction_opened)
@@ -292,23 +307,24 @@ namespace osm_diff_analyzer_user_object
     bool l_result = false;
     // Binding values to statement
     //----------------------------
-    int l_status = sqlite3_bind_int(p_stmt,sqlite3_bind_parameter_index(p_stmt,"$id"),p_id);
+    int l_status = sqlite3_bind_int(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
     if(l_status != SQLITE_OK)
       {
-	std::cout << "ERROR during binding of Id parameter for contains statement : " << sqlite3_errmsg(m_db) << std::endl ;     
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during binding of Id parameter for contains statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
     
     // Executing statement
     //---------------------
-    l_status = sqlite3_step(p_stmt);
+    l_status = sqlite3_step(&p_stmt);
     if( l_status == SQLITE_ROW)
       {
 #ifdef ENABLE_SUCCESS_STATUS_DISPLAY 
 	std::cout << p_element->get_core_type_str() << " successfully selected" << std::endl ;
 #endif
 	// Ensure that ID is unique
-	l_status = sqlite3_step(p_stmt);
+	l_status = sqlite3_step(&p_stmt);
 	if( l_status == SQLITE_DONE)
 	  {
 #ifdef ENABLE_SUCCESS_STATUS_DISPLAY
@@ -318,43 +334,47 @@ namespace osm_diff_analyzer_user_object
 	  }
 	else
 	  {
-	    std::cout << "ERROR during selection of : Id " << p_id << " is not unique " << sqlite3_errmsg(m_db) << std::endl ;
-	    exit(-1);
+	    std::stringstream l_stream;
+	    l_stream << "ERROR during selection of : Id " << p_id << " is not unique " << sqlite3_errmsg(m_db) ;
+	    throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
 	  }
       }
     else if(l_status != SQLITE_DONE)
       {
-	std::cout << "ERROR during selection " << sqlite3_errmsg(m_db) << " in " << __FILE__ << ":" << __LINE__ << std::endl ;
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during selection " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
 
 
     // Reset the statement for the next use
     //--------------------------------------
-    l_status = sqlite3_reset(p_stmt);  
+    l_status = sqlite3_reset(&p_stmt);  
     if(l_status != SQLITE_OK)
       {
-	std::cout << "ERROR during reset of contains statement : " << sqlite3_errmsg(m_db) << " : " << __FILE__ << ":" << __LINE__ << std::endl ;     
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during reset of contains statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     // Reset bindings because they are now useless
     //--------------------------------------------
-    l_status = sqlite3_clear_bindings(p_stmt);
+    l_status = sqlite3_clear_bindings(&p_stmt);
     if(l_status != SQLITE_OK)
       {
-	std::cout << "ERROR during reset of bindings of contains statement : " << sqlite3_errmsg(m_db) <<  " : " << __FILE__ << ":" << __LINE__ << std::endl ;     
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR during reset of bindings of contains statement : " << sqlite3_errmsg(m_db) ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
     return l_result;
   }
 
   //----------------------------------------------------------------------------
-  bool user_object_analyzer_db::contains(const osm_api_data_types::osm_core_element * const p_element)
+  bool user_object_analyzer_db::contains(const osm_api_data_types::osm_core_element & p_element)
   {
     sqlite3_stmt * l_stmt = NULL;
-    switch(p_element->get_core_type())
+    switch(p_element.get_core_type())
       {
       case osm_api_data_types::osm_core_element::NODE :
 	l_stmt = m_contains_node_id_stmt;
@@ -366,11 +386,12 @@ namespace osm_diff_analyzer_user_object
 	l_stmt = m_contains_relation_id_stmt;
 	break;
       case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-	std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(p_element->get_core_type()) << "\"" << std::endl ;
-	exit(-1);
+	std::stringstream l_stream;
+	l_stream << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(p_element.get_core_type()) << "\"" ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
 	break;
       }
-    return contains(l_stmt,p_element->get_id());
+    return contains(*l_stmt,p_element.get_id());
   }
 
   //----------------------------------------------------------------------------

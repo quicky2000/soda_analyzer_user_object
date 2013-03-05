@@ -45,8 +45,9 @@ namespace osm_diff_analyzer_user_object
     if(l_old_file.is_open())
       {
         l_old_file.close();
-        std::cout << "ERROR : user_object.sqlite3 is now deprecated to allow multi-instance usage. Please rename it to " << (get_name()+".sqlite3") << std::endl ;
-        exit(EXIT_FAILURE);
+	std::stringstream l_stream;
+	l_stream << "ERROR : user_object.sqlite3 is now deprecated to allow multi-instance usage. Please rename it to " << (get_name()+".sqlite3");
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     const std::map<std::string,std::string> & l_conf_parameters = p_conf->get_parameters();
@@ -55,12 +56,13 @@ namespace osm_diff_analyzer_user_object
     std::map<std::string,std::string>::const_iterator l_iter = l_conf_parameters.find("user_name");
     if(l_iter == l_conf_parameters.end())
       {
-	std::cout << "ERROR : missing mandatory \"user_name\" parameter in module \"" << get_name() <<"\"" << std::endl ;
-	exit(-1);
+	std::stringstream l_stream ;
+	l_stream << "ERROR : missing mandatory \"user_name\" parameter in module \"" << get_name() <<"\"" ;
+	throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
       }
 
     std::stringstream l_stream;
-    l_stream << get_name() << " : parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
+    l_stream << "parameter[\"user_name\"]=\"" << l_iter->second << "\"" << std::endl ;
     m_api.ui_append_log_text(*this,l_stream.str());
 
     m_user_name = l_iter->second;
@@ -150,24 +152,24 @@ namespace osm_diff_analyzer_user_object
                 ++l_iter)
               {
 
-		m_db.insert(*l_iter);
-		//		m_api.cache(**l_iter);                
+		m_db.insert(**l_iter);
+		m_api.cache(**l_iter);                
               }
             
             for(std::set<osm_api_data_types::osm_way*>::const_iterator l_iter = l_ways_to_survey.begin();
                 l_iter != l_ways_to_survey.end();
                 ++l_iter)
               {
-		m_db.insert(*l_iter);
-		//		m_api.cache(**l_iter);                
+		m_db.insert(**l_iter);
+		m_api.cache(**l_iter);                
               }
             
             for(std::set<osm_api_data_types::osm_relation*>::const_iterator l_iter = l_relations_to_survey.begin();
                 l_iter != l_relations_to_survey.end();
                 ++l_iter)
               {
-		m_db.insert(*l_iter);
-		//		m_api.cache(**l_iter);                
+		m_db.insert(**l_iter);
+		m_api.cache(**l_iter);                
               }
 
 	    //Free memory
@@ -190,9 +192,23 @@ namespace osm_diff_analyzer_user_object
 	      {
 		delete *l_iter;
 	      }
-	    std::cout << get_name() << " " << l_nb_added_nodes << " nodes put under survey" << std::endl ;
-	    std::cout << get_name() << " " << l_nb_added_ways << " ways put under survey" << std::endl ;
-	    std::cout << get_name() << " " << l_nb_added_relations << " relations put under survey" << std::endl ;
+	    {
+	      {
+		std::stringstream l_stream;
+		l_stream << l_nb_added_nodes << " nodes put under survey" ;
+		m_api.ui_append_log_text(*this,l_stream.str());
+	      }
+	      {
+		std::stringstream l_stream;
+		l_stream << l_nb_added_ways << " ways put under survey" ;
+		m_api.ui_append_log_text(*this,l_stream.str());
+	      }
+	      {
+		std::stringstream l_stream;
+		l_stream << l_nb_added_relations << " relations put under survey" ;
+		m_api.ui_append_log_text(*this,l_stream.str());
+	      }
+	    }
 	  }
 	else if(l_file_extension == ".osc")
 	  {
@@ -212,7 +228,9 @@ namespace osm_diff_analyzer_user_object
 	  }
 	else
 	  {
-	    std::cout << "WARNING : Unknown extension \"" << l_file_extension << "\" ( should be .som or .osc ) ignoring file \"" << l_file_name << "\"" << std::endl ;
+	    std::stringstream l_atream;
+	    l_stream << "WARNING : Unknown extension \"" << l_file_extension << "\" ( should be .som or .osc ) ignoring file \"" << l_file_name << "\"" ;
+	    m_api.ui_append_log_text(*this,l_stream.str());
 	  }
       }
 
@@ -245,8 +263,9 @@ namespace osm_diff_analyzer_user_object
     m_report.open(l_complete_report_file_name.c_str());
     if(m_report.fail())
       {
-	std::cout << "ERROR : unabled to open \"" << l_complete_report_file_name << "\"" << std::endl ;
-	exit(EXIT_FAILURE);
+	std::stringstream l_stream;
+	l_stream << "ERROR : unabled to open \"" << l_complete_report_file_name << "\"" ;
+	throw quicky_exception::quicky_runtime_exception(l_stream.str(),__LINE__,__FILE__);
       }
     m_report << "<html>" << std::endl ;
     m_report << "\t<head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">" << std::endl ;
@@ -290,22 +309,25 @@ namespace osm_diff_analyzer_user_object
         ++l_iter)
       {
         const osm_api_data_types::osm_core_element * const l_element = (*l_iter)->get_core_element();
-        assert(l_element);
+        if(l_element == NULL) throw quicky_exception::quicky_logic_exception("Core element should not be NULL",__LINE__,__FILE__);
 
         switch(l_element->get_core_type())
           {
           case osm_api_data_types::osm_core_element::NODE :
-	    generic_analyze<osm_api_data_types::osm_node>(l_element,(*l_iter)->get_type());
+	    generic_analyze<osm_api_data_types::osm_node>(*l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::WAY :
-	    generic_analyze<osm_api_data_types::osm_way>(l_element,(*l_iter)->get_type());
+	    generic_analyze<osm_api_data_types::osm_way>(*l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::RELATION :
-	    generic_analyze<osm_api_data_types::osm_relation>(l_element,(*l_iter)->get_type());
+	    generic_analyze<osm_api_data_types::osm_relation>(*l_element,(*l_iter)->get_type());
             break;
           case osm_api_data_types::osm_core_element::INTERNAL_INVALID:
-            std::cout << "ERROR : unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(l_element->get_core_type()) << "\"" << std::endl ;
-            exit(-1);
+	    {
+	      std::stringstream l_stream;
+	      l_stream << "Unexpected core type value \"" << osm_api_data_types::osm_core_element::get_osm_type_str(l_element->get_core_type()) << "\"" ;
+	      throw quicky_exception::quicky_logic_exception(l_stream.str(),__LINE__,__FILE__);
+	    }
             break;
           }
 
@@ -321,8 +343,9 @@ namespace osm_diff_analyzer_user_object
             ++m_deletion;
             break;
           case osm_api_data_types::osm_change::INTERNAL_INVALID :
-            std::cout << "Unexpected change type" << std::endl ;
-            exit(-1);
+	    {
+	      throw quicky_exception::quicky_logic_exception("Unexpected change type",__LINE__,__FILE__);
+	    }
             break;
           }
       }
