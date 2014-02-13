@@ -188,7 +188,7 @@ namespace osm_diff_analyzer_user_object
 
     // Binding values to statement
     //----------------------------
-    int l_status = sqlite3_bind_int(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
+    int l_status = sqlite3_bind_int64(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
     if(l_status != SQLITE_OK)
       {
 	std::stringstream l_stream;
@@ -307,7 +307,7 @@ namespace osm_diff_analyzer_user_object
     bool l_result = false;
     // Binding values to statement
     //----------------------------
-    int l_status = sqlite3_bind_int(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
+    int l_status = sqlite3_bind_int64(&p_stmt,sqlite3_bind_parameter_index(&p_stmt,"$id"),p_id);
     if(l_status != SQLITE_OK)
       {
 	std::stringstream l_stream;
